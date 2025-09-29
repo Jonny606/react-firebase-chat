@@ -1,25 +1,40 @@
 import React, { useRef, useState } from 'react';
 import './App.css';
 
-import firebase from 'firebase/app';
-import 'firebase/firestore';
-import 'firebase/auth';
-import 'firebase/analytics';
+// --- NEW Firebase v9 Modular Imports ---
+import { initializeApp } from 'firebase/app';
+import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { 
+  getFirestore, 
+  collection, 
+  query, 
+  orderBy, 
+  limit, 
+  addDoc, 
+  serverTimestamp 
+} from 'firebase/firestore';
+import { getAnalytics } from 'firebase/analytics'; 
+// Note: We need getAnalytics, but it's not used in this example yet.
 
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { useCollectionData } from 'react-firebase-hooks/firestore';
 
-firebase.initializeApp({
-  // your config
-})
+// --- Firebase Initialization (v9 style) ---
+// IMPORTANT: You must replace the placeholder with your actual Firebase config object.
+const firebaseConfig = {
+  // your config goes here, like:
+  // apiKey: "...",
+  // authDomain: "...",
+  // projectId: "...",
+  // etc.
+};
 
-const auth = firebase.auth();
-const firestore = firebase.firestore();
-const analytics = firebase.analytics();
-
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const firestore = getFirestore(app);
+const analytics = getAnalytics(app); // Initialized but not currently used in components
 
 function App() {
-
   const [user] = useAuthState(auth);
 
   return (
@@ -38,10 +53,11 @@ function App() {
 }
 
 function SignIn() {
-
+  // We use the imported GoogleAuthProvider
   const signInWithGoogle = () => {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    auth.signInWithPopup(provider);
+    const provider = new GoogleAuthProvider();
+    // We use the modular signInWithPopup
+    signInWithPopup(auth, provider);
   }
 
   return (
@@ -50,10 +66,10 @@ function SignIn() {
       <p>Do not violate the community guidelines or you will be banned for life!</p>
     </>
   )
-
 }
 
 function SignOut() {
+  // The sign-out function remains the same
   return auth.currentUser && (
     <button className="sign-out" onClick={() => auth.signOut()}>Sign Out</button>
   )
@@ -62,10 +78,15 @@ function SignOut() {
 
 function ChatRoom() {
   const dummy = useRef();
-  const messagesRef = firestore.collection('messages');
-  const query = messagesRef.orderBy('createdAt').limit(25);
+  
+  // V9: Use collection() to get a reference to the 'messages' collection
+  const messagesRef = collection(firestore, 'messages'); 
+  
+  // V9: Use query() to combine the collection reference and the constraints
+  const q = query(messagesRef, orderBy('createdAt'), limit(25));
 
-  const [messages] = useCollectionData(query, { idField: 'id' });
+  // useCollectionData now uses the v9 Query object (q)
+  const [messages] = useCollectionData(q, { idField: 'id' });
 
   const [formValue, setFormValue] = useState('');
 
@@ -75,9 +96,11 @@ function ChatRoom() {
 
     const { uid, photoURL } = auth.currentUser;
 
-    await messagesRef.add({
+    // V9: Use addDoc() instead of .add() on the collection reference
+    await addDoc(messagesRef, {
       text: formValue,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      // V9: serverTimestamp() is imported and used directly
+      createdAt: serverTimestamp(), 
       uid,
       photoURL
     })
@@ -113,7 +136,7 @@ function ChatMessage(props) {
 
   return (<>
     <div className={`message ${messageClass}`}>
-      <img src={photoURL || 'https://api.adorable.io/avatars/23/abott@adorable.png'} />
+      <img src={photoURL || 'https://api.adorable.io/avatars/23/abott@adorable.png'} alt="user avatar" />
       <p>{text}</p>
     </div>
   </>)
